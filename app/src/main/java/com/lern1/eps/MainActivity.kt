@@ -3,6 +3,7 @@ package com.lern1.eps
 import android.app.Instrumentation.ActivityResult
 import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.icu.text.Transliterator
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -12,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationListener
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
@@ -38,6 +40,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val mark5=LatLng(51.447656,7.273599)
     val mark6=LatLng(51.448662,7.272676)
     val mark7=LatLng(51.448194,7.271131)
+
+    private val locations = mutableListOf<Location>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -45,9 +50,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
         createLocationRequest()
         checkLocationSettings()
-        val btnHighAccuracy = findViewById<Button>(R.id.btnHighAccuracy)
+
+        val btnHighAccuracy  = findViewById<Button>(R.id.btnHighAccuracy)
         val btnBalancedPower = findViewById<Button>(R.id.btnBalancedPower)
-        val btnLowPower = findViewById<Button>(R.id.btnLowPower)
+        val btnLowPower      = findViewById<Button>(R.id.btnLowPower)
+        val btnSaveLocations = findViewById<Button>(R.id.save_button)
 
         btnHighAccuracy.setOnClickListener {
             setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
@@ -60,16 +67,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         btnLowPower.setOnClickListener {
             setPriority(LocationRequest.PRIORITY_LOW_POWER)
         }
-    }
 
-    private fun createLocationRequest() {
-        locationRequest = LocationRequest.create().apply {
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-            interval = 10000
-            fastestInterval = 5000
+        btnSaveLocations.setOnClickListener {
+           val locationListener:LocationListener = object : LocationListener {
+               override fun onLocationChanged(location: Location) {
+                   locations.add(location)
+               }
+           }
+            for (location in locations) {
+                println("Breitengrad: ${location.latitude}, Längengrad: ${location.longitude}")
+            }
         }
     }
 
+    private fun setPriority(priority: Int) {
+        locationRequest.priority = priority
+        checkLocationSettings()
+    }
     private fun checkLocationSettings() {
         val builder = LocationSettingsRequest.Builder()
             .addLocationRequest(locationRequest)
@@ -91,7 +105,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-
     private fun getLastKnownLocation() {
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -122,6 +135,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mapFragment.getMapAsync(this)
     }
 
+    private fun createLocationRequest() {
+        locationRequest = LocationRequest.create().apply {
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            interval = 10000
+            fastestInterval = 5000
+        }
+    }
+
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -133,10 +155,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun setPriority(priority: Int) {
-        locationRequest.priority = priority
-        checkLocationSettings()
-    }
 
     override fun onMapReady(googleMap: GoogleMap) {
         mGoogleMap = googleMap
@@ -168,3 +186,5 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     }
 }
+
+

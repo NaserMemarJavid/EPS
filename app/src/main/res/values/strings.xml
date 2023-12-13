@@ -2,4 +2,8 @@
     <string name="app_name">EPS</string>
     <string name="google_map_api_key">AIzaSyB6KcGMU2ARWY9NkHOYejiOWaD7F9HuuDY</string>
     <string name="title_activity_maps">MapsActivity</string>
+    <string name="balanced_power">Balanced Power</string>
+    <string name="high_accuracy">High Accuracy</string>
+    <string name="low_power">Low Power</string>
+    <string name="button">Button</string>
 </resources>
