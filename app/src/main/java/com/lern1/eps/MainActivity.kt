@@ -1,15 +1,21 @@
 package com.lern1.eps
 
 import android.app.Instrumentation.ActivityResult
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
+import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.SettingsClient
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -17,12 +23,13 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 
-class MainActivity : AppCompatActivity() ,OnMapReadyCallback{
-    private lateinit var mGoogleMap:GoogleMap
-    private var locationArrayList: ArrayList<LatLng>?=null
+class MainActivity : AppCompatActivity(), OnMapReadyCallback {
+
+    private lateinit var mGoogleMap: GoogleMap
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
-    private lateinit var currentLocation: Location
-    private val permissionCode=101
+    private lateinit var locationRequest: LocationRequest
+    private val permissionCode = 101
+    private var currentLocation: Location? = null
 
     val mark1=LatLng(51.447734,7.269780)
     val mark2=LatLng(51.446996,7.270313)
@@ -34,56 +41,85 @@ class MainActivity : AppCompatActivity() ,OnMapReadyCallback{
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-       /* val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.mapFragment) as SupportMapFragment
-        mapFragment.getMapAsync(this)
-        locationArrayList = ArrayList()
-        locationArrayList!!.add(mark1)
-        locationArrayList!!.add(mark2)
-        locationArrayList!!.add(mark3)
-        locationArrayList!!.add(mark4)
-        locationArrayList!!.add(mark5)
-        locationArrayList!!.add(mark6)
-        locationArrayList!!.add(mark7) */
-        fusedLocationProviderClient =LocationServices.getFusedLocationProviderClient(this);
-        getCurrentLocationUser()
 
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
+        createLocationRequest()
+        checkLocationSettings()
+        val btnHighAccuracy = findViewById<Button>(R.id.btnHighAccuracy)
+        val btnBalancedPower = findViewById<Button>(R.id.btnBalancedPower)
+        val btnLowPower = findViewById<Button>(R.id.btnLowPower)
+
+        btnHighAccuracy.setOnClickListener {
+            setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+        }
+
+        btnBalancedPower.setOnClickListener {
+            setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY)
+        }
+
+        btnLowPower.setOnClickListener {
+            setPriority(LocationRequest.PRIORITY_LOW_POWER)
+        }
     }
-    private fun getCurrentLocationUser(){
+
+    private fun createLocationRequest() {
+        locationRequest = LocationRequest.create().apply {
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            interval = 10000
+            fastestInterval = 5000
+        }
+    }
+
+    private fun checkLocationSettings() {
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+
+        val client: SettingsClient = LocationServices.getSettingsClient(this)
+        val task = client.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            getLastKnownLocation()
+        }
+
+        task.addOnFailureListener { exception ->
+            if (exception is ResolvableApiException) {
+                try {
+                    exception.startResolutionForResult(this@MainActivity, 1)
+                } catch (sendEx: IntentSender.SendIntentException) {
+                    sendEx.printStackTrace()
+                }
+            }
+        }
+    }
+
+    private fun getLastKnownLocation() {
         if (ActivityCompat.checkSelfPermission(
                 this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
                 this,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED){
-
-            ActivityCompat.requestPermissions(this,
-                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),permissionCode)
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                permissionCode
+            )
             return
         }
-        val getLocation=fusedLocationProviderClient.lastLocation.addOnSuccessListener {
-            location ->
-            if(location != null){
+
+        fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
                 currentLocation = location
-                Toast.makeText(applicationContext,currentLocation.latitude.toString()+""+
-                currentLocation.longitude.toString(),Toast.LENGTH_LONG).show()
-
-                val mapFragment = supportFragmentManager
-                    .findFragmentById(R.id.mapFragment) as SupportMapFragment
-                mapFragment.getMapAsync(this)
-                locationArrayList = ArrayList()
-                locationArrayList!!.add(mark1)
-                locationArrayList!!.add(mark2)
-                locationArrayList!!.add(mark3)
-                locationArrayList!!.add(mark4)
-                locationArrayList!!.add(mark5)
-                locationArrayList!!.add(mark6)
-                locationArrayList!!.add(mark7)
-
+                onLocationChanged(location)
             }
         }
+    }
 
+    private fun onLocationChanged(location: Location) {
+        val mapFragment = supportFragmentManager.findFragmentById(R.id.mapFragment) as SupportMapFragment
+        mapFragment.getMapAsync(this)
     }
 
     override fun onRequestPermissionsResult(
@@ -92,24 +128,43 @@ class MainActivity : AppCompatActivity() ,OnMapReadyCallback{
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when(requestCode){
-            permissionCode -> if(grantResults.isNotEmpty()&& grantResults[0]==
-                PackageManager.PERMISSION_GRANTED){
-                getCurrentLocationUser()
-            }
+        if (requestCode == permissionCode && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            getLastKnownLocation()
         }
     }
 
+    private fun setPriority(priority: Int) {
+        locationRequest.priority = priority
+        checkLocationSettings()
+    }
+
     override fun onMapReady(googleMap: GoogleMap) {
-        mGoogleMap=googleMap
-        val latLng=LatLng(currentLocation.latitude,currentLocation.longitude)
-        val markerOption = MarkerOptions().position(latLng).title("Current Location")
-        googleMap?.addMarker(markerOption)
-        for(i in locationArrayList!!.indices){
-            mGoogleMap.addMarker(MarkerOptions().position(locationArrayList!![i]).title("Marker"))
-            mGoogleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(locationArrayList!!.get(i),15f))
-
-
+        mGoogleMap = googleMap
+        currentLocation?.let {
+            val latLng = LatLng(it.latitude, it.longitude)
+            val markerOption = MarkerOptions().position(latLng).title("Current Location")
+            googleMap.addMarker(markerOption)
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
         }
+
+        // Hier werden die Marker hinzugefügt
+        val marker1 = MarkerOptions().position(mark1).title("Marker 1")
+        val marker2 = MarkerOptions().position(mark2).title("Marker 2")
+        val marker3 = MarkerOptions().position(mark3).title("Marker 1")
+        val marker4 = MarkerOptions().position(mark4).title("Marker 2")
+        val marker5 = MarkerOptions().position(mark5).title("Marker 1")
+        val marker6 = MarkerOptions().position(mark6).title("Marker 2")
+        val marker7 = MarkerOptions().position(mark7).title("Marker 1")
+
+
+        googleMap.addMarker(marker1)
+        googleMap.addMarker(marker2)
+        googleMap.addMarker(marker3)
+        googleMap.addMarker(marker4)
+        googleMap.addMarker(marker5)
+        googleMap.addMarker(marker6)
+        googleMap.addMarker(marker7)
+
+
     }
 }
