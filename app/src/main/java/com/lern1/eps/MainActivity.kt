@@ -7,6 +7,7 @@ import android.icu.text.Transliterator
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,15 +70,46 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         btnSaveLocations.setOnClickListener {
-           val locationListener:LocationListener = object : LocationListener {
-               override fun onLocationChanged(location: Location) {
-                   locations.add(location)
-               }
-           }
-            for (location in locations) {
-                println("Breitengrad: ${location.latitude}, Längengrad: ${location.longitude}")
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                    permissionCode
+                )
+            } else {
+                val locationListener: LocationListener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        locations.add(location)
+                        Log.i("LocationLog", "Breitengrad: ${location.latitude}, Längengrad: ${location.longitude}")
+
+
+                        fusedLocationProviderClient.removeLocationUpdates(this)
+
+                        
+                        Log.i("LocationLog", "Alle Standorte:")
+                        for (i in locations.indices) {
+                            val loc = locations[i]
+                            Log.i("LocationLog", "Standort $i - Breitengrad: ${loc.latitude}, Längengrad: ${loc.longitude}")
+                        }
+                    }
+                }
+                fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationListener, null)
             }
         }
+
+
+
+
+
+
+
     }
 
     private fun setPriority(priority: Int) {
@@ -182,6 +214,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.addMarker(marker5)
         googleMap.addMarker(marker6)
         googleMap.addMarker(marker7)
+
+
+        for (i in locations.indices) {
+            val location = locations[i]
+            val latLng = LatLng(location.latitude, location.longitude)
+            val markerOptions = MarkerOptions().position(latLng).title("Gespeicherter Standort $i")
+            googleMap.addMarker(markerOptions)
+        }
 
 
     }
