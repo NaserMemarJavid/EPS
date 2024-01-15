@@ -147,7 +147,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         try {
             val file = File(filesDir, "locations.txt")
             if (!file.exists()) {
-                Log.i("LoadLocations", "Die Datei locations.dat existiert nicht.")
+                Log.i("LoadLocations", "Die Datei locations.txt existiert nicht.")
                 return mutableListOf()
             }
 
