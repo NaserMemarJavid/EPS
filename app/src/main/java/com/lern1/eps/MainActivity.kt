@@ -25,6 +25,11 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -51,7 +56,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
         createLocationRequest()
         checkLocationSettings()
-
+        locations.addAll(loadLocationsFromFile())
         val btnHighAccuracy  = findViewById<Button>(R.id.btnHighAccuracy)
         val btnBalancedPower = findViewById<Button>(R.id.btnBalancedPower)
         val btnLowPower      = findViewById<Button>(R.id.btnLowPower)
@@ -92,6 +97,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
                         fusedLocationProviderClient.removeLocationUpdates(this)
 
+
+                        saveLocationsToFile()
+
                         
                         Log.i("LocationLog", "Alle Standorte:")
                         for (i in locations.indices) {
@@ -111,6 +119,73 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
     }
+    private fun saveLocationsToFile() {
+        try {
+            val file = File(filesDir, "locations.txt")
+            val fileOutputStream = FileOutputStream(file)
+            val objectOutputStream = ObjectOutputStream(fileOutputStream)
+
+            // Wandele Location-Objekte in SerializableLocation-Objekte um
+            val serializableLocations = locations.map {
+                SerializableLocation(it.latitude, it.longitude)
+            }
+
+            // Schreibe die SerializableLocation-Objekte in die Datei
+            objectOutputStream.writeObject(serializableLocations)
+
+            objectOutputStream.close()
+            fileOutputStream.close()
+
+            Toast.makeText(this, "Standorte erfolgreich gespeichert", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("SaveLocations", "Fehler beim Speichern der Standorte: ${e.message}")
+            Toast.makeText(this, "Fehler beim Speichern der Standorte", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun loadLocationsFromFile(): MutableList<Location> {
+        try {
+            val file = File(filesDir, "locations.txt")
+            if (!file.exists()) {
+                Log.i("LoadLocations", "Die Datei locations.dat existiert nicht.")
+                return mutableListOf()
+            }
+
+            val fileInputStream = FileInputStream(file)
+            val objectInputStream = ObjectInputStream(fileInputStream)
+
+            // Lese SerializableLocation-Objekte aus der Datei
+            val serializableLocations = objectInputStream.readObject() as List<SerializableLocation>
+
+            objectInputStream.close()
+            fileInputStream.close()
+
+            // Wandele SerializableLocation-Objekte in Location-Objekte um
+            val loadedLocations = serializableLocations.map {
+                Location("").apply {
+                    latitude = it.latitude
+                    longitude = it.longitude
+                }
+            }.toMutableList()
+
+
+            Log.i("LoadLocations", "Erfolgreich ${loadedLocations.size} Standorte geladen.")
+
+
+            for (i in 0 until loadedLocations.size) {
+                val loc = loadedLocations[i]
+                Log.i("LoadLocations", "Standort $i - Breitengrad: ${loc.latitude}, Längengrad: ${loc.longitude}")
+            }
+
+            return loadedLocations
+        } catch (e: Exception) {
+            Log.e("LoadLocations", "Fehler beim Laden der Standorte: ${e.message}")
+            return mutableListOf()
+        }
+    }
+
+
+
 
     private fun setPriority(priority: Int) {
         locationRequest.priority = priority
