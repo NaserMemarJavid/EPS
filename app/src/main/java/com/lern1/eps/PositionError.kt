@@ -11,7 +11,7 @@ class PositionError {
             println("Groundtruth: $gtPoint, Closest Recorded: $closestRecordedPoint, Error: $distanceError km")
         }
     }
-    
+
     fun findClosestRecordedPoint(gtPoint: Waypoint, recorded: List<Waypoint>): Waypoint {
         var closestPoint = recorded.firstOrNull()
         var closestDistance = calculateDistance(gtPoint, closestPoint ?: return gtPoint)
