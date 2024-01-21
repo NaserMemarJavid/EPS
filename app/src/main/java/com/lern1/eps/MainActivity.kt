@@ -1,21 +1,24 @@
 package com.lern1.eps
 
-import android.app.Instrumentation.ActivityResult
+
 import android.content.IntentSender
 import android.content.pm.PackageManager
-import android.icu.text.Transliterator
+
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+
 import android.util.Log
 import android.widget.Button
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.FusedLocationProviderClient
+
 import com.google.android.gms.location.LocationListener
 import com.google.android.gms.location.LocationRequest
+
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.SettingsClient
@@ -25,11 +28,13 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -38,6 +43,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var locationRequest: LocationRequest
     private val permissionCode = 101
     private var currentLocation: Location? = null
+
+
+
+
+    private var markerTitle = "Default Title"
+
 
     val mark1=LatLng(51.447734,7.269780)
     val mark2=LatLng(51.446996,7.270313)
@@ -48,6 +59,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val mark7=LatLng(51.448194,7.271131)
 
     private val locations = mutableListOf<Location>()
+    private val markers = mutableListOf<MarkerInfo>()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,22 +70,132 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         createLocationRequest()
         checkLocationSettings()
         locations.addAll(loadLocationsFromFile())
+        markers.addAll(loadMarkersFromFile())
+
+        val btnSaveStrecke = findViewById<Button>(R.id.btnSaveStrecke)
+        btnSaveStrecke.setOnClickListener {
+            if (currentLocation != null) {
+                val markerInfo = MarkerInfo(currentLocation!!.latitude, currentLocation!!.longitude, markerTitle)
+                markers.add(markerInfo)
+                saveMarkersToFile()
+
+
+                showMarkersOnMap()
+            } else {
+                Toast.makeText(this, "Aktuelle Position nicht verfügbar.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         val btnHighAccuracy  = findViewById<Button>(R.id.btnHighAccuracy)
         val btnBalancedPower = findViewById<Button>(R.id.btnBalancedPower)
         val btnLowPower      = findViewById<Button>(R.id.btnLowPower)
         val btnSaveLocations = findViewById<Button>(R.id.save_button)
 
         btnHighAccuracy.setOnClickListener {
-            setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                    permissionCode
+                )
+            } else {
+                val locationListener: LocationListener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        // Hier wird die Funktion aufgerufen, um die Karte mit der aktuellen Position zu aktualisieren
+                        updateLocationOnMap(location)
+
+                        fusedLocationProviderClient.removeLocationUpdates(this)
+
+                        Log.i("LocationLog", "Breitengrad: ${location.latitude}, Längengrad: ${location.longitude}")
+                    }
+                }
+
+                // Setze die Priorität und aktualisiere die Position
+                setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationListener, null)
+
+                markerTitle = "Strecke High Accuracy"
+                updateLocationOnMap(currentLocation!!)
+            }
         }
 
         btnBalancedPower.setOnClickListener {
-            setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY)
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                    permissionCode
+                )
+            } else {
+                val locationListener: LocationListener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        // Hier wird die Funktion aufgerufen, um die Karte mit der aktuellen Position zu aktualisieren
+                        updateLocationOnMap(location)
+
+                        fusedLocationProviderClient.removeLocationUpdates(this)
+
+                        Log.i("LocationLog", "Breitengrad: ${location.latitude}, Längengrad: ${location.longitude}")
+                    }
+                }
+
+                // Setze die Priorität und aktualisiere die Position
+                setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY)
+                fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationListener, null)
+
+                markerTitle = "Strecke Balanced Power"
+                updateLocationOnMap(currentLocation!!)
+            }
         }
 
         btnLowPower.setOnClickListener {
-            setPriority(LocationRequest.PRIORITY_LOW_POWER)
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                    permissionCode
+                )
+            } else {
+                val locationListener: LocationListener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        // Hier wird die Funktion aufgerufen, um die Karte mit der aktuellen Position zu aktualisieren
+                        updateLocationOnMap(location)
+
+                        fusedLocationProviderClient.removeLocationUpdates(this)
+
+                        Log.i("LocationLog", "Breitengrad: ${location.latitude}, Längengrad: ${location.longitude}")
+                    }
+                }
+
+                // Setze die Priorität und aktualisiere die Position
+                setPriority(LocationRequest.PRIORITY_LOW_POWER)
+                fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationListener, null)
+
+                markerTitle = "Strecke Low Power"
+                updateLocationOnMap(currentLocation!!)
+            }
         }
+
 
         btnSaveLocations.setOnClickListener {
             if (ActivityCompat.checkSelfPermission(
@@ -100,7 +223,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
                         saveLocationsToFile()
 
-                        
+
                         Log.i("LocationLog", "Alle Standorte:")
                         for (i in locations.indices) {
                             val loc = locations[i]
@@ -108,17 +231,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                         }
                     }
                 }
+
+
                 fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationListener, null)
             }
         }
 
-
-
-
-
-
-
     }
+
+
+    private fun updateLocationOnMap(location: Location) {
+        currentLocation = location
+        val mapFragment = supportFragmentManager.findFragmentById(R.id.mapFragment) as SupportMapFragment
+        mapFragment.getMapAsync { googleMap ->
+            //googleMap.clear()
+
+            // Füge einen Marker für die aktuelle Position hinzu
+            val latLng = LatLng(location.latitude, location.longitude)
+            val markerOptions = MarkerOptions().position(latLng).title("Current Location")
+            googleMap.addMarker(markerOptions)
+
+            // Bewege die Kamera zur aktuellen Position
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 18f))
+        }
+    }
+
     private fun saveLocationsToFile() {
         try {
             val file = File(filesDir, "locations.txt")
@@ -188,9 +325,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
     private fun setPriority(priority: Int) {
+        Log.i("LocationLog", "Set Priority: $priority")
         locationRequest.priority = priority
         checkLocationSettings()
+        updateLocation()
     }
+
+
+
     private fun checkLocationSettings() {
         val builder = LocationSettingsRequest.Builder()
             .addLocationRequest(locationRequest)
@@ -200,6 +342,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         task.addOnSuccessListener {
             getLastKnownLocation()
+            updateLocation()
         }
 
         task.addOnFailureListener { exception ->
@@ -209,6 +352,32 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 } catch (sendEx: IntentSender.SendIntentException) {
                     sendEx.printStackTrace()
                 }
+            }
+        }
+    }
+    private fun updateLocation() {
+        Log.i("LocationLog", "Updating location...")
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                permissionCode
+            )
+            return
+        }
+
+
+        fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                currentLocation = location
+                onLocationChanged(location)
             }
         }
     }
@@ -238,9 +407,71 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun onLocationChanged(location: Location) {
+        currentLocation = location
         val mapFragment = supportFragmentManager.findFragmentById(R.id.mapFragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
     }
+    private fun saveMarkersToFile() {
+        try {
+            val file = File(filesDir, "markers.txt")
+            val fileOutputStream = FileOutputStream(file)
+            val objectOutputStream = ObjectOutputStream(fileOutputStream)
+
+
+
+            // Schreibe die Marker-Informationen in die Datei
+            objectOutputStream.writeObject(markers)
+
+            objectOutputStream.close()
+            fileOutputStream.close()
+
+            Log.i("SaveMarkers", "Anzahl der Marker nach dem Speichern: ${markers.size}")
+
+            Toast.makeText(this, "Marker erfolgreich gespeichert", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("SaveMarkers", "Fehler beim Speichern der Marker: ${e.message}")
+            Toast.makeText(this, "Fehler beim Speichern der Marker", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun loadMarkersFromFile(): List<MarkerInfo> {
+        try {
+            val file = File(filesDir, "markers.txt")
+            if (!file.exists()) {
+                Log.i("LoadMarkers", "Die Datei markers.txt existiert nicht.")
+                return emptyList()
+            }
+
+            val fileInputStream = FileInputStream(file)
+            val objectInputStream = ObjectInputStream(fileInputStream)
+
+            // Lese Marker-Informationen aus der Datei
+            val loadedMarkers = objectInputStream.readObject() as List<MarkerInfo>
+
+            objectInputStream.close()
+            fileInputStream.close()
+
+            Log.i("LoadMarkers", "Erfolgreich ${loadedMarkers.size} Marker geladen.")
+
+            return loadedMarkers
+        } catch (e: Exception) {
+            Log.e("LoadMarkers", "Fehler beim Laden der Marker: ${e.message}")
+            return emptyList()
+        }
+
+    }
+
+
+    private fun showMarkersOnMap() {
+
+        mGoogleMap.clear()
+        for (markerInfo in markers) {
+            val latLng = LatLng(markerInfo.latitude, markerInfo.longitude)
+            val markerOptions = MarkerOptions().position(latLng).title(markerInfo.title)
+            mGoogleMap.addMarker(markerOptions)
+        }
+    }
+
 
     private fun createLocationRequest() {
         locationRequest = LocationRequest.create().apply {
@@ -249,6 +480,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             fastestInterval = 5000
         }
     }
+
 
 
     override fun onRequestPermissionsResult(
@@ -269,8 +501,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val latLng = LatLng(it.latitude, it.longitude)
             val markerOption = MarkerOptions().position(latLng).title("Current Location")
             googleMap.addMarker(markerOption)
-            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 18f))
         }
+        Log.i("Markers", "Anzahl geladener Marker: ${markers.size}")
+
+        showMarkersOnMap()
 
         // Hier werden die Marker hinzugefügt
         val marker1 = MarkerOptions().position(mark1).title("Marker 1")
