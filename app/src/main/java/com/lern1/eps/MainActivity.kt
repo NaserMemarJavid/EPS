@@ -34,6 +34,9 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -58,7 +61,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val mark6=LatLng(51.448662,7.272676)
     val mark7=LatLng(51.448194,7.271131)
 
-    private val locations = mutableListOf<Location>()
+    private val locations = mutableListOf<Waypoint>()
     private val markers = mutableListOf<MarkerInfo>()
 
 
@@ -75,7 +78,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val btnSaveStrecke = findViewById<Button>(R.id.btnSaveStrecke)
         btnSaveStrecke.setOnClickListener {
             if (currentLocation != null) {
-                val markerInfo = MarkerInfo(currentLocation!!.latitude, currentLocation!!.longitude, markerTitle)
+                val timestamp = System.currentTimeMillis()
+                val markerInfo = MarkerInfo(currentLocation!!.latitude, currentLocation!!.longitude, markerTitle,timestamp)
                 markers.add(markerInfo)
                 saveMarkersToFile()
 
@@ -214,7 +218,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             } else {
                 val locationListener: LocationListener = object : LocationListener {
                     override fun onLocationChanged(location: Location) {
-                        locations.add(location)
+                        val timestamp = System.currentTimeMillis()
+
+                        val waypoint = Waypoint(location.latitude, location.longitude, timestamp)
+
+                        locations.add(waypoint)
+
+                        //locations.add(location)
+
+
+
+
                         Log.i("LocationLog", "Breitengrad: ${location.latitude}, Längengrad: ${location.longitude}")
 
 
@@ -264,7 +278,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
             // Wandele Location-Objekte in SerializableLocation-Objekte um
             val serializableLocations = locations.map {
-                SerializableLocation(it.latitude, it.longitude)
+                SerializableLocation(it.latitude, it.longitude,System.currentTimeMillis())
             }
 
             // Schreibe die SerializableLocation-Objekte in die Datei
@@ -272,6 +286,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
             objectOutputStream.close()
             fileOutputStream.close()
+            Log.i("LocationLog", "Inhalte von locations:")
+
 
             Toast.makeText(this, "Standorte erfolgreich gespeichert", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
@@ -280,47 +296,40 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun loadLocationsFromFile(): MutableList<Location> {
+
+    private fun loadLocationsFromFile(): List<Waypoint> {
+        val waypoints = mutableListOf<Waypoint>()
         try {
             val file = File(filesDir, "locations.txt")
-            if (!file.exists()) {
-                Log.i("LoadLocations", "Die Datei locations.txt existiert nicht.")
-                return mutableListOf()
-            }
+            if (file.exists()) {
+                val fileInputStream = FileInputStream(file)
+                val objectInputStream = ObjectInputStream(fileInputStream)
 
-            val fileInputStream = FileInputStream(file)
-            val objectInputStream = ObjectInputStream(fileInputStream)
+                // Lese SerializableWaypoint-Objekte aus der Datei
+                val serializableWaypoints = objectInputStream.readObject() as List<SerializableLocation>
 
-            // Lese SerializableLocation-Objekte aus der Datei
-            val serializableLocations = objectInputStream.readObject() as List<SerializableLocation>
+                objectInputStream.close()
+                fileInputStream.close()
 
-            objectInputStream.close()
-            fileInputStream.close()
+                // Wandele SerializableWaypoint-Objekte in Waypoint-Objekte um
+                waypoints.addAll(serializableWaypoints.map {
+                    Waypoint(it.latitude, it.longitude, it.timestamp)
+                })
 
-            // Wandele SerializableLocation-Objekte in Location-Objekte um
-            val loadedLocations = serializableLocations.map {
-                Location("").apply {
-                    latitude = it.latitude
-                    longitude = it.longitude
+                // Anzeigen der Inhalte von waypoints
+                Log.i("LocationLog", "Inhalte von waypoints:")
+                for (i in waypoints.indices) {
+                    val wp = waypoints[i]
+                    Log.i("LocationLog", "Standort $i - Breitengrad: ${wp.latitude}, Längengrad: ${wp.longitude}, Timestamp: ${wp.timestamp}")
                 }
-            }.toMutableList()
-
-
-            Log.i("LoadLocations", "Erfolgreich ${loadedLocations.size} Standorte geladen.")
-
-
-            for (i in 0 until loadedLocations.size) {
-                val loc = loadedLocations[i]
-                Log.i("LoadLocations", "Standort $i - Breitengrad: ${loc.latitude}, Längengrad: ${loc.longitude}")
+            } else {
+                Log.i("LocationLog", "Die Datei locations.txt existiert nicht.")
             }
-
-            return loadedLocations
         } catch (e: Exception) {
             Log.e("LoadLocations", "Fehler beim Laden der Standorte: ${e.message}")
-            return mutableListOf()
         }
+        return waypoints
     }
-
 
 
 
@@ -417,11 +426,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val fileOutputStream = FileOutputStream(file)
             val objectOutputStream = ObjectOutputStream(fileOutputStream)
 
-
+            val markedWithTimestamp = markers.map {
+                MarkerInfo(it.latitude, it.longitude, it.title, System.currentTimeMillis())
+            }
 
             // Schreibe die Marker-Informationen in die Datei
-            objectOutputStream.writeObject(markers)
-
+            //objectOutputStream.writeObject(markers)
+            objectOutputStream.writeObject(markedWithTimestamp)
             objectOutputStream.close()
             fileOutputStream.close()
 
@@ -469,7 +480,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val latLng = LatLng(markerInfo.latitude, markerInfo.longitude)
             val markerOptions = MarkerOptions().position(latLng).title(markerInfo.title)
             mGoogleMap.addMarker(markerOptions)
+            mGoogleMap.addMarker(markerOptions)?.snippet = getFormattedTimestamp(markerInfo.timestamp)
         }
+    }
+    private fun getFormattedTimestamp(timestamp: Long): String {
+        val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault())
+        val date = Date(timestamp)
+        return dateFormat.format(date)
     }
 
 
