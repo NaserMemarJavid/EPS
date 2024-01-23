@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.lern1.eps"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.lern1.eps"
         minSdk = 24
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -47,6 +47,10 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("androidx.core:core-ktx:+")
+    implementation("androidx.core:core-ktx:+")
+    implementation("androidx.core:core-ktx:+")
+    implementation("androidx.core:core-ktx:+")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

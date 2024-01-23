@@ -26,6 +26,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 
@@ -498,6 +499,44 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    fun linearInterpolation(waypoints: List<Waypoint>): List<Waypoint> {
+        val interpolatedPoints = mutableListOf<Waypoint>()
+
+        for (i in 0 until waypoints.size - 1) {
+            val currentPoint = waypoints[i]
+            val nextPoint = waypoints[i + 1]
+
+            // Zeitdifferenz zwischen den beiden Wegpunkten
+            val timeDifference = nextPoint.timestamp - currentPoint.timestamp
+
+            // Anzahl der Schritte (Sekunden) zwischen den beiden Wegpunkten
+            val steps = timeDifference / 1000
+
+            // Berechnung der Schrittweite für die lineare Interpolation
+            val latStep = (nextPoint.latitude - currentPoint.latitude) / steps
+            val lonStep = (nextPoint.longitude - currentPoint.longitude) / steps
+
+            // Lineare Interpolation und Hinzufügen der interpolierten Punkte zur Liste
+            for (step in 0 until steps) {
+                val interpolatedLat = currentPoint.latitude + latStep * step
+                val interpolatedLon = currentPoint.longitude + lonStep * step
+                val interpolatedTimestamp = currentPoint.timestamp + step * 1000
+
+                interpolatedPoints.add(
+                    Waypoint(
+                        interpolatedLat,
+                        interpolatedLon,
+                        interpolatedTimestamp
+                    )
+                )
+            }
+        }
+
+        // Füge den letzten Wegpunkt hinzu
+        interpolatedPoints.add(waypoints.last())
+
+        return interpolatedPoints
+    }
 
 
     override fun onRequestPermissionsResult(
@@ -550,7 +589,25 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             googleMap.addMarker(markerOptions)
         }
 
+        val interpolatedPoints = linearInterpolation(locations);
 
+        for (i in interpolatedPoints.indices) {
+            val interpolatedLocation = interpolatedPoints[i]
+            val latLng = LatLng(interpolatedLocation.latitude, interpolatedLocation.longitude)
+            val markerOptions =
+                MarkerOptions().position(latLng).title("Interpolated Point $i").icon(
+                    BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
+                )
+            googleMap.addMarker(markerOptions)
+        }
+
+        // Anzeigen der gespeicherten Standorte
+        for (i in locations.indices) {
+            val location = locations[i]
+            val latLng = LatLng(location.latitude, location.longitude)
+            val markerOptions = MarkerOptions().position(latLng).title("Gespeicherter Standort $i")
+            googleMap.addMarker(markerOptions)
+        }
     }
 }
 
