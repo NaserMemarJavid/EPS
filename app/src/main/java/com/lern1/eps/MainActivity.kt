@@ -38,6 +38,14 @@ import java.io.ObjectOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+import com.jjoe64.graphview.GraphView
+import com.jjoe64.graphview.series.DataPoint
+import com.jjoe64.graphview.series.LineGraphSeries
 
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -554,6 +562,61 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (requestCode == permissionCode && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             getLastKnownLocation()
         }
+    }
+    fun findClosestRecordedPoint(gtPoint: Waypoint, recorded: List<Waypoint>): Waypoint {
+        return recorded.minByOrNull { recordedPoint ->
+            Math.abs(recordedPoint.timestamp - gtPoint.timestamp)
+        } ?: recorded.firstOrNull() ?: gtPoint // Fallback, falls die Liste leer ist
+    }
+
+    fun calculateDistance(point1: Waypoint, point2: Waypoint): Double {
+        val earthRadius = 6371.0 // Durchschnittlicher Radius der Erde in Kilometern
+        val dLat = Math.toRadians(point2.latitude - point1.latitude)
+        val dLon = Math.toRadians(point2.longitude - point1.longitude)
+
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+                cos(Math.toRadians(point1.latitude)) * cos(Math.toRadians(point2.latitude)) *
+                sin(dLon / 2) * sin(dLon / 2)
+
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        val distance = earthRadius * c
+
+        return distance
+    }
+
+    fun calculatePositionError(groundtruth: List<Waypoint>, recorded: List<Waypoint>): List<Double> {
+        val positionErrors = mutableListOf<Double>()
+
+        for (interpolatedPoint in recorded) {
+            val closestGroundtruthPoint = findClosestRecordedPoint(interpolatedPoint, groundtruth)
+            val distanceError = calculateDistance(interpolatedPoint, closestGroundtruthPoint)
+
+            positionErrors.add(distanceError)
+        }
+
+        return positionErrors
+    }
+
+    fun calculateCDF(errors: List<Double>): Map<Double, Double> {
+        val sortedErrors = errors.sorted()
+        val cdf = mutableMapOf<Double, Double>()
+        var cumulativeProbability = 0.0
+
+        for ((index, error) in sortedErrors.withIndex()) {
+            cumulativeProbability = (index + 1) / errors.size.toDouble()
+            cdf[error] = cumulativeProbability
+        }
+
+        return cdf
+    }
+
+    fun calculateConfidenceError(cdf: Map<Double, Double>, confidenceLevel: Double): Double {
+        val targetProbability = confidenceLevel / 100.0
+        val closestEntry = cdf.entries.minByOrNull { (_, cumulativeProbability) ->
+            Math.abs(cumulativeProbability - targetProbability)
+        }
+
+        return closestEntry?.key ?: Double.NaN // Fallback für den Fall, dass keine Übereinstimmung gefunden wird
     }
 
 
