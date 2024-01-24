@@ -502,6 +502,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     fun linearInterpolation(waypoints: List<Waypoint>): List<Waypoint> {
         val interpolatedPoints = mutableListOf<Waypoint>()
 
+
+        if (waypoints.isEmpty()) {
+            Log.e("Interpolation", "Die Liste mit Wegpunkten ist leer.")
+            return emptyList()  // oder eine leere Liste zurückgeben oder auf andere Weise behandeln
+        }
+
         for (i in 0 until waypoints.size - 1) {
             val currentPoint = waypoints[i]
             val nextPoint = waypoints[i + 1]
@@ -591,14 +597,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val interpolatedPoints = linearInterpolation(locations);
 
-        for (i in interpolatedPoints.indices) {
-            val interpolatedLocation = interpolatedPoints[i]
-            val latLng = LatLng(interpolatedLocation.latitude, interpolatedLocation.longitude)
-            val markerOptions =
-                MarkerOptions().position(latLng).title("Interpolated Point $i").icon(
-                    BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
-                )
-            googleMap.addMarker(markerOptions)
+        if (interpolatedPoints.isNotEmpty()) {
+            for (i in interpolatedPoints.indices) {
+                val interpolatedLocation = interpolatedPoints[i]
+                val latLng = LatLng(interpolatedLocation.latitude, interpolatedLocation.longitude)
+                val markerOptions =
+                    MarkerOptions().position(latLng).title("Interpolated Point $i").icon(
+                        BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
+                    )
+                googleMap.addMarker(markerOptions)
+            }
+        }else {
+            Log.e("Interpolation", "Die Liste mit interpolierten Punkten ist leer.")
         }
 
         // Anzeigen der gespeicherten Standorte
